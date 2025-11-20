@@ -120,10 +120,16 @@ const GithubActivity: React.FC = () => {
 
   // Scroll to end when data loads
   useEffect(() => {
-    if (scrollContainerRef.current && calendarGrid.length > 0) {
-      scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+    if (!loading && scrollContainerRef.current && calendarGrid.length > 0) {
+      // Small timeout to ensure DOM layout is complete
+      const timer = setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+        }
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [calendarGrid]);
+  }, [calendarGrid, loading]);
 
   const getLevelColor = (level: number) => {
     switch (level) {
