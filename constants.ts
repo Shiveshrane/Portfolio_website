@@ -58,8 +58,8 @@ export const EDUCATION: ExperienceItem[] = [
 export const PROJECTS: Project[] = [
   {
     title: "Research Paper Implementations",
-    description: "Implemented multiple research papers from scratch to understand architectures: AlexNet, ResNet, InceptionNet, FasterRCNN, UNet. NLP papers like Transformers (GPT), Llama, BERT with Rotary Embeddings and Positional Encodings.",
-    tech: ["PyTorch", "Model Architecture", "Research", "Deep Learning"],
+    description: "Implemented multiple research papers from scratch in Tensorflow and Pytorch to understand their various concepts and architecture.",
+    tech: ["PyTorch", "Tensorflow", "Model Architecture", "Research", "Deep Learning"],
     link: import.meta.env.VITE_GITHUB_URL || "https://github.com",
     type: "Implementation"
   },
