@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shivesh Rane | CS Student / AI Researcher</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100..800&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        background-color: #050505;
+        color: #e5e5e5;
+        font-family: 'JetBrains Mono', monospace;
+        overflow-x: hidden;
+      }
+      
+      /* Industrial Scanlines */
+      .scanlines {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0),
+          rgba(255, 255, 255, 0) 50%,
+          rgba(0, 0, 0, 0.1) 50%,
+          rgba(0, 0, 0, 0.1)
+        );
+        background-size: 100% 4px;
+        pointer-events: none;
+        z-index: 50;
+      }
+
+      /* CRT Flicker Animation */
+      @keyframes flicker {
+        0% { opacity: 0.97; }
+        5% { opacity: 0.95; }
+        10% { opacity: 0.9; }
+        15% { opacity: 0.95; }
+        20% { opacity: 0.99; }
+        25% { opacity: 0.95; }
+        30% { opacity: 0.9; }
+        35% { opacity: 0.96; }
+        40% { opacity: 0.98; }
+        45% { opacity: 0.95; }
+        50% { opacity: 0.99; }
+        55% { opacity: 0.93; }
+        60% { opacity: 0.9; }
+        65% { opacity: 0.96; }
+        70% { opacity: 1; }
+        75% { opacity: 0.97; }
+        80% { opacity: 0.95; }
+        85% { opacity: 0.92; }
+        90% { opacity: 0.95; }
+        95% { opacity: 0.99; }
+        100% { opacity: 0.94; }
+      }
+
+      .crt-flicker {
+        animation: flicker 0.15s infinite;
+      }
+
+      /* Typing Cursor */
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+      }
+      .cursor-blink {
+        animation: blink 1s step-end infinite;
+      }
+
+      /* Liquid Glass Effect */
+      @keyframes liquidSheen {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+
+      .liquid-glass {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 50%, rgba(255, 255, 255, 0.03) 100%);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        position: relative;
+        overflow: hidden;
+        transition: all 0.4s ease;
+      }
+
+      .liquid-glass::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 200%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.05), rgba(255, 255, 255, 0.05), rgba(16, 185, 129, 0.05), transparent);
+        transform: skewX(-25deg);
+        transition: 0.5s;
+        pointer-events: none;
+      }
+
+      .liquid-glass:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(16, 185, 129, 0.3);
+        box-shadow: 0 8px 32px 0 rgba(16, 185, 129, 0.1);
+      }
+
+      .liquid-glass:hover::before {
+        animation: sheen 1.5s infinite;
+      }
+
+      @keyframes sheen {
+        0% { left: -100%; }
+        100% { left: 100%; }
+      }
+
+      /* Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0a0a0a;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333;
+        border: 1px solid #000;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #10b981;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <div class="scanlines"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
