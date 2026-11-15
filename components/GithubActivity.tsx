@@ -1,15 +1,5 @@
-
-import React, { useMemo, useEffect, useState, useRef } from 'react';
-import { BIO } from '../constants';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { GITHUB_CONFIG } from '../config';
-import { GitCommit, Star, GitBranch, Eye, Zap } from 'lucide-react';
-
-// ...existing code...
-interface GithubData {
-  public_repos: number;
-  followers: number;
-  following: number;
-}
 
 interface ContributionDay {
   date: string;
@@ -17,237 +7,139 @@ interface ContributionDay {
   level: number;
 }
 
-interface ContributionResponse {
-  total: Record<string, number>;
-  contributions: ContributionDay[];
+interface Profile {
+  public_repos: number;
+  followers: number;
 }
 
+const LEVEL_CLASS = ['bg-line', 'bg-accent/25', 'bg-accent/45', 'bg-accent/70', 'bg-accent'];
+
 const GithubActivity: React.FC = () => {
-  const [profileData, setProfileData] = useState<GithubData | null>(null);
-  const [contributionData, setContributionData] = useState<ContributionDay[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [days, setDays] = useState<ContributionDay[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
   const [recentRepos, setRecentRepos] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [totalContributions, setTotalContributions] = useState(0);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const user = GITHUB_CONFIG.USERNAME;
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const headers: HeadersInit = {};
-        if (GITHUB_CONFIG.TOKEN) {
-          headers['Authorization'] = `token ${GITHUB_CONFIG.TOKEN}`;
-        }
+    const headers: HeadersInit = GITHUB_CONFIG.TOKEN ? { Authorization: `token ${GITHUB_CONFIG.TOKEN}` } : {};
 
-        // 1. Fetch User Profile
-        const profileRes = await fetch(`https://api.github.com/users/${GITHUB_CONFIG.USERNAME}`, { headers });
-        if (profileRes.ok) {
-          const data = await profileRes.json();
-          setProfileData({
-            public_repos: data.public_repos,
-            followers: data.followers,
-            following: data.following
-          });
-        }
+    const loadProfile = fetch(`https://api.github.com/users/${user}`, { headers })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setProfile({ public_repos: d.public_repos, followers: d.followers }))
+      .catch(() => {});
 
-        // 2. Fetch Contributions (Full History)
-        const initialRes = await fetch(`https://github-contributions-api.jogruber.de/v4/${GITHUB_CONFIG.USERNAME}`);
-        if (initialRes.ok) {
-          const initialData: ContributionResponse = await initialRes.json();
-          const years = Object.keys(initialData.total);
-          
-          if (years.length > 0) {
-             // Fetch all years in parallel
-             const yearPromises = years.map(year => 
-                fetch(`https://github-contributions-api.jogruber.de/v4/${GITHUB_CONFIG.USERNAME}?y=${year}`)
-                  .then(res => res.json())
-             );
-             
-             const yearData = await Promise.all(yearPromises);
-             const allContributions = yearData
-                .flatMap((d: any) => d.contributions)
-                .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const loadEvents = fetch(`https://api.github.com/users/${user}/events?per_page=30`, { headers })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((events: any[]) => {
+        const repos = events
+          .filter((e) => e.type === 'PushEvent')
+          .map((e) => e.repo.name.split('/')[1] || e.repo.name);
+        setRecentRepos(Array.from(new Set<string>(repos)).slice(0, 3));
+      })
+      .catch(() => {});
 
-             setContributionData(allContributions);
-             
-             // Calculate total contributions
-             const total = Object.values(initialData.total).reduce((a, b) => a + b, 0);
-             setTotalContributions(total);
-          } else {
-             setContributionData(initialData.contributions);
-          }
-        }
+    const loadContributions = fetch(`https://github-contributions-api.jogruber.de/v4/${user}?y=last`)
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then((d: { total: Record<string, number>; contributions: ContributionDay[] }) => {
+        setDays(d.contributions);
+        setTotal(d.total.lastYear ?? Object.values(d.total).reduce((a, b) => a + b, 0));
+        setStatus('ready');
+      })
+      .catch(() => setStatus('error'));
 
-        // 3. Fetch Recent Activity for "Currently Working On"
-        const eventsRes = await fetch(`https://api.github.com/users/${GITHUB_CONFIG.USERNAME}/events?per_page=20`, { headers });
-        if (eventsRes.ok) {
-            const events = await eventsRes.json();
-            const pushEvents = events.filter((e: any) => e.type === 'PushEvent');
-            const repos = pushEvents.map((e: any) => e.repo.name.split('/')[1] || e.repo.name);
-            const uniqueRepos = Array.from(new Set(repos)).slice(0, 2);
-            setRecentRepos(uniqueRepos as string[]);
-        }
-      } catch (error) {
-        console.error("GitHub Fetch Error", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    Promise.all([loadProfile, loadEvents, loadContributions]);
+  }, [user]);
 
-    fetchData();
-  }, []);
+  const weeks = useMemo(() => {
+    if (!days.length) return [];
+    const pad = new Date(days[0].date).getUTCDay(); // 0 = Sunday
+    const all: (ContributionDay | null)[] = [...Array(pad).fill(null), ...days];
+    const out: (ContributionDay | null)[][] = [];
+    for (let i = 0; i < all.length; i += 7) out.push(all.slice(i, i + 7));
+    return out;
+  }, [days]);
 
-  const calendarGrid = useMemo(() => {
-    if (!contributionData.length) return [];
-
-    const weeks: (ContributionDay | null)[][] = [];
-    
-    // Find start day of week of the first date
-    // Use UTC to avoid timezone shifts
-    const firstDate = new Date(contributionData[0].date);
-    const startDay = firstDate.getUTCDay(); // 0 = Sunday
-    
-    // Create padding for the first week
-    const padding = Array(startDay).fill(null);
-    const allDays = [...padding, ...contributionData];
-
-    // Chunk into weeks
-    for (let i = 0; i < allDays.length; i += 7) {
-      weeks.push(allDays.slice(i, i + 7));
-    }
-
-    return weeks;
-  }, [contributionData]);
-
-  // Scroll to end when data loads
+  // On narrow screens, start scrolled to the most recent weeks.
   useEffect(() => {
-    if (!loading && scrollContainerRef.current && calendarGrid.length > 0) {
-      // Small timeout to ensure DOM layout is complete
-      const timer = setTimeout(() => {
-        if (scrollContainerRef.current) {
-          scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
-        }
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [calendarGrid, loading]);
-
-  const getLevelColor = (level: number) => {
-    switch (level) {
-      case 0: return 'bg-[#161b22]';
-      case 1: return 'bg-[#0e4429]';
-      case 2: return 'bg-[#006d32]';
-      case 3: return 'bg-[#26a641]';
-      case 4: return 'bg-[#39d353]';
-      default: return 'bg-[#161b22]';
-    }
-  };
+    if (scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+  }, [weeks]);
 
   return (
-    <div className="w-full border border-neutral-800 bg-[#0d1117] p-6 relative group overflow-hidden">
-       {/* Industrial Decor */}
-       <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-emerald-500"></div>
-       <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-emerald-500"></div>
-       <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-emerald-500"></div>
-       <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-emerald-500"></div>
-
-       {/* Header Stats */}
-       <div className="flex flex-col gap-4 mb-6">
-         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-center gap-2">
-               <GitCommit className="text-emerald-500" size={20} />
-               <h3 className="text-lg font-bold text-neutral-200 font-mono">
-                 GITHUB_CONTRIBUTIONS
-               </h3>
-            </div>
-            
-            <div className="flex items-center gap-4 text-xs font-mono text-neutral-400">
-               <div className="flex items-center gap-1 bg-neutral-900 px-2 py-1 border border-neutral-800">
-                 <GitBranch size={12} className="text-emerald-500"/>
-                 <span className="text-neutral-300">{profileData ? profileData.public_repos : '--'}</span> Repos
-               </div>
-               <div className="flex items-center gap-1 bg-neutral-900 px-2 py-1 border border-neutral-800">
-                 <Eye size={12} className="text-emerald-500"/>
-                 <span className="text-neutral-300">{profileData ? profileData.followers : '--'}</span> Followers
-               </div>
-            </div>
-         </div>
-
-         {/* Currently Working On */}
-         {recentRepos.length > 0 && (
-            <div className="flex items-center gap-2 text-xs font-mono text-neutral-400 bg-neutral-900/30 p-2 border border-neutral-800/50 rounded">
-                <Zap size={14} className="text-yellow-500" />
-                <span className="text-neutral-500">Currently working on:</span>
-                <div className="flex gap-2 flex-wrap">
-                    {recentRepos.map(repo => (
-                        <a 
-                          key={repo}
-                          href={`https://github.com/${GITHUB_CONFIG.USERNAME}/${repo}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-emerald-400 bg-emerald-900/10 px-2 py-0.5 rounded border border-emerald-900/30 hover:bg-emerald-900/30 transition-colors"
-                        >
-                            {repo}
-                        </a>
-                    ))}
-                </div>
-            </div>
-         )}
-       </div>
-
-      {/* The Graph */}
-      <div className="relative">
-        <div className="absolute top-0 right-0 -mt-6 text-[10px] text-neutral-500 font-mono flex items-center gap-1">
-            <span>Recent</span>
-            <span className="text-emerald-500">↓</span>
-        </div>
-        <div 
-          ref={scrollContainerRef}
-          className="w-full overflow-x-auto scrollbar-hide pb-2"
-        >
-          <div className="flex gap-[3px] min-w-max">
-            {loading ? (
-               <div className="text-neutral-500 text-sm font-mono p-4">Loading contribution data...</div>
-            ) : (
-              calendarGrid.map((week, weekIndex) => (
-                <div key={weekIndex} className="flex flex-col gap-[3px]">
-                  {week.map((day, dayIndex) => {
-                    if (!day) {
-                      return <div key={`empty-${weekIndex}-${dayIndex}`} className="w-[10px] h-[10px]" />;
-                    }
-                    return (
-                      <div
-                        key={day.date}
-                        className={`w-[10px] h-[10px] rounded-[2px] ${getLevelColor(day.level)} transition-colors duration-500`}
-                        title={`${day.date}: ${day.count} contributions`}
-                      />
-                    );
-                  })}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+    <div>
+      <div className="flex flex-wrap gap-x-8 gap-y-2 mb-6 font-mono text-xs text-faint">
+        <span>
+          <span className="text-ink tabular-nums">{total ?? '—'}</span> contributions · last 12 months
+        </span>
+        <span>
+          <span className="text-ink tabular-nums">{profile?.public_repos ?? '—'}</span> public repos
+        </span>
+        <span>
+          <span className="text-ink tabular-nums">{profile?.followers ?? '—'}</span> followers
+        </span>
       </div>
-      
-      <div className="mt-4 flex justify-between items-center text-xs text-neutral-500 font-mono border-t border-neutral-800 pt-3">
-// ...existing code...
-         <a 
-            href={`https://github.com/${GITHUB_CONFIG.USERNAME}`} 
-            target="_blank" 
-            rel="noreferrer"
-            className="hover:text-white transition-colors flex items-center gap-1 group-hover:translate-x-1 transition-transform duration-300"
-         >
-           View Full Profile <span className="text-emerald-500">→</span>
-         </a>
-         <div className="flex items-center gap-1">
-            <span>Less</span>
-            <div className="w-[10px] h-[10px] rounded-[2px] bg-[#161b22]"></div>
-            <div className="w-[10px] h-[10px] rounded-[2px] bg-[#0e4429]"></div>
-            <div className="w-[10px] h-[10px] rounded-[2px] bg-[#006d32]"></div>
-            <div className="w-[10px] h-[10px] rounded-[2px] bg-[#26a641]"></div>
-            <div className="w-[10px] h-[10px] rounded-[2px] bg-[#39d353]"></div>
-            <span>More</span>
-         </div>
+
+      <div ref={scrollRef} className="overflow-x-auto scrollbar-hide">
+        {status === 'loading' && (
+          <div className="h-[115px] flex items-center font-mono text-xs text-faint">loading activity…</div>
+        )}
+        {status === 'error' && (
+          <div className="h-[115px] flex items-center font-mono text-xs text-faint">
+            Couldn’t load contribution data right now.
+          </div>
+        )}
+        {status === 'ready' && (
+          <div className="flex gap-[3px] w-max" role="img" aria-label={`${total} GitHub contributions in the last year`}>
+            {weeks.map((week, wi) => (
+              <div key={wi} className="flex flex-col gap-[3px]">
+                {week.map((day, di) =>
+                  day ? (
+                    <div
+                      key={day.date}
+                      className={`size-[13px] md:size-[15px] rounded-[2px] ${LEVEL_CLASS[day.level] ?? LEVEL_CLASS[0]}`}
+                      title={`${day.count} contribution${day.count === 1 ? '' : 's'} on ${day.date}`}
+                    />
+                  ) : (
+                    <div key={`pad-${di}`} className="size-[13px] md:size-[15px]" />
+                  )
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-4 font-mono text-[11px] text-faint">
+        <div className="flex flex-wrap items-center gap-2">
+          {recentRepos.length > 0 && (
+            <>
+              <span>recent pushes</span>
+              {recentRepos.map((repo) => (
+                <a
+                  key={repo}
+                  href={`https://github.com/${user}/${repo}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-1.5 py-0.5 rounded border border-line text-muted hover:text-accent hover:border-accent/40 transition-colors"
+                >
+                  {repo}
+                </a>
+              ))}
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span>less</span>
+          {LEVEL_CLASS.map((c) => (
+            <span key={c} className={`size-[10px] rounded-[2px] ${c}`} />
+          ))}
+          <span>more</span>
+        </div>
       </div>
     </div>
   );

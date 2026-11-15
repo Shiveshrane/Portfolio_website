@@ -3,11 +3,12 @@
 import { ExperienceItem, Project, Skill, SocialLink } from './types';
 
 export const BIO = {
-  name: import.meta.env.VITE_NAME || "Portfolio Owner",
-  role: "CS STUDENT / AI RESEARCHER",
-  summary: "Final year CSE student who also loves gaslighting machines. Specialising in NLP and language modelling. Currently exploring CUDA and Text Diffusion.",
-  location: import.meta.env.VITE_LOCATION || "Location",
-  email: import.meta.env.VITE_EMAIL || "email@example.com"
+  name: import.meta.env.VITE_NAME || "Shivesh Rane",
+  role: "CS Student / AI Researcher",
+  summary: "Final year CSE student who also loves gaslighting machines. Specialising in NLP and language modelling. Currently exploring Triton, ML Systems and Text Diffusion.",
+  location: import.meta.env.VITE_LOCATION || "Goa, India",
+  email: import.meta.env.VITE_EMAIL || "shiveshrane4work@gmail.com",
+  focus: ["NLP", "Language modelling", "ML Systems", "Triton", "Text diffusion"]
 };
 
 export const SKILLS: Skill[] = [
@@ -15,7 +16,7 @@ export const SKILLS: Skill[] = [
   { name: "Computer Vision", level: 70, category: "Core" },
   { name: "PyTorch", level: 90, category: "Frameworks" },
   { name: "TensorFlow", level: 80, category: "Frameworks" },
-  { name: "Sci-kit Learn", level: 85, category: "Frameworks" },
+  { name: "scikit-learn", level: 85, category: "Frameworks" },
   { name: "Transformers (HF)", level: 88, category: "Frameworks" },
   { name: "Flask", level: 75, category: "Frameworks" },
   { name: "Python", level: 98, category: "Languages" },
@@ -31,7 +32,7 @@ export const EXPERIENCE: ExperienceItem[] = [
     duration: "July 2025 - Sept 2025",
     description: [
       "Working on language-based object tracking using CLIP and YOLO architectures.",
-      "Explored the possibilities of Vision langage models for Object detection pipelines."
+      "Explored the possibilities of vision-language models for object detection pipelines."
     ],
     tech: ["CLIP", "YOLO", "PyTorch", "Computer Vision"]
   }
@@ -41,7 +42,7 @@ export const EDUCATION: ExperienceItem[] = [
   {
     role: "Bachelor of Engineering (Computer Engineering)",
     company: "Goa College of Engineering",
-    duration: "Sep 2022 - Present",
+    duration: "Sept 2022 - July 2026",
     description: [
       "CGPA: 8.2 (Sem VI)",
       "Coursework: Data Structures, Algorithms, AI, Machine Learning"
@@ -81,6 +82,6 @@ export const PROJECTS: Project[] = [
 
 export const SOCIALS: SocialLink[] = [
   { platform: "GitHub", url: import.meta.env.VITE_GITHUB_URL || "https://github.com", icon: "github" },
-  { platform: "LinkedIn", url: import.meta.env.VITE_LINKEDIN_URL || "https://linkedin.com", icon: "linkedin" },
+  { platform: "LinkedIn", url: import.meta.env.VITE_LINKEDIN_URL || "https://www.linkedin.com/in/shivesh-rane-ab453826a/", icon: "linkedin" },
   { platform: "Email", url: `mailto:${BIO.email}`, icon: "mail" }
 ];
