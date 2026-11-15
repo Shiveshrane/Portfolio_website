@@ -35,7 +35,7 @@ const externalProps = (url: string) => (url.startsWith('mailto:') ? {} : { targe
 
 /** Two-column row used by experience and education: mono date on the left, content on the right. */
 const Row: React.FC<{ aside: React.ReactNode; children: React.ReactNode }> = ({ aside, children }) => (
-  <article className="grid md:grid-cols-[140px_1fr] gap-x-10 gap-y-2 py-8 border-t border-line first:border-t-0 first:pt-0">
+  <article className="grid md:grid-cols-[140px_1fr] lg:grid-cols-[200px_1fr] xl:grid-cols-[240px_1fr] gap-x-10 xl:gap-x-16 gap-y-2 py-8 border-t border-line first:border-t-0 first:pt-0">
     <div className="font-mono text-xs text-muted">{aside}</div>
     <div className="min-w-0">{children}</div>
   </article>
@@ -159,7 +159,7 @@ const App: React.FC = () => {
           scrolled ? 'bg-bg/80 backdrop-blur-md border-b border-line' : 'border-b border-transparent'
         }`}
       >
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+        <div className="mx-auto w-full max-w-[100rem] px-5 sm:px-8 lg:px-12 xl:px-16 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-5 min-w-0">
             <a href="#top" className="font-mono text-sm text-ink hover:text-accent transition-colors whitespace-nowrap">
               <span className="text-accent">~/</span>
@@ -210,19 +210,19 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      <main id="top" className="max-w-5xl mx-auto px-4 sm:px-6">
+      <main id="top" className="mx-auto w-full max-w-[100rem] px-5 sm:px-8 lg:px-12 xl:px-16">
         {/* Hero */}
         <header
           ref={heroRef}
           onPointerMove={trackPointer}
           onPointerLeave={(e) => e.currentTarget.style.setProperty('--mx', '-999px')}
-          className="relative isolate pt-32 md:pt-44 pb-24 md:pb-32"
+          className="relative isolate flex flex-col justify-center pt-28 pb-20 lg:min-h-[100svh] lg:pt-24 lg:pb-16"
         >
           <div className="absolute inset-0 -z-10 plot-grid" aria-hidden="true" />
           <div className="absolute inset-0 -z-10 plot-grid-hot" aria-hidden="true" />
 
-          <div className="grid md:grid-cols-12 gap-14 md:gap-8 items-start">
-            <div className="md:col-span-7">
+          <div className="grid lg:grid-cols-12 gap-14 lg:gap-10 xl:gap-16 items-center">
+            <div className="lg:col-span-7">
               <TextReveal>
                 <div className="inline-flex items-center gap-2 font-mono text-xs text-muted">
                   <span className="relative flex size-2">
@@ -237,14 +237,14 @@ const App: React.FC = () => {
                 <div className="mt-6">
                   <TokenizedName
                     name={BIO.name}
-                    className="text-5xl sm:text-6xl md:text-7xl font-semibold tracking-[-0.045em] leading-[1.05] text-ink"
+                    className="text-5xl sm:text-6xl md:text-7xl xl:text-8xl font-semibold tracking-[-0.045em] leading-[1.05] text-ink"
                   />
                 </div>
               </TextReveal>
 
               <TextReveal delay={160}>
-                <p className="mt-4 text-lg md:text-xl text-muted">{BIO.role}</p>
-                <p className="mt-6 max-w-xl text-base leading-relaxed text-muted">{BIO.summary}</p>
+                <p className="mt-4 text-lg md:text-xl xl:text-2xl text-muted">{BIO.role}</p>
+                <p className="mt-6 max-w-xl xl:max-w-2xl text-base xl:text-lg leading-relaxed text-muted">{BIO.summary}</p>
               </TextReveal>
 
               <TextReveal delay={240}>
@@ -285,7 +285,7 @@ const App: React.FC = () => {
               </TextReveal>
             </div>
 
-            <TextReveal delay={200} className="md:col-span-5 md:pl-8 md:border-l md:border-line">
+            <TextReveal delay={200} className="lg:col-span-5 lg:pl-8 xl:pl-12 lg:border-l lg:border-line">
               <AttentionMap />
             </TextReveal>
           </div>
@@ -350,7 +350,7 @@ const App: React.FC = () => {
           <TextReveal>
             <SectionHeader index="03" title="Projects" />
           </TextReveal>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 lg:gap-6 md:grid-cols-3">
             {PROJECTS.map((p, idx) => (
               <TextReveal key={p.title} delay={idx * 80} className="h-full">
                 <a
@@ -435,18 +435,21 @@ const App: React.FC = () => {
 
         {/* Contact */}
         <section id="contact" className="py-24 md:py-32 border-t border-line">
-          <TextReveal>
+          <TextReveal className="grid gap-10 lg:grid-cols-12 lg:items-end">
+            <div className="lg:col-span-7">
             <p className="font-mono text-xs text-accent">06</p>
-            <h2 className="mt-4 max-w-2xl text-3xl md:text-5xl font-semibold tracking-[-0.03em] leading-tight text-ink text-balance">
+            <h2 className="mt-4 max-w-3xl text-3xl md:text-5xl xl:text-6xl font-semibold tracking-[-0.03em] leading-tight text-ink text-balance">
               Working on language models? Let’s talk.
             </h2>
+            </div>
+            <div className="lg:col-span-5 lg:justify-self-end lg:text-right">
             <a
               href={`mailto:${BIO.email}`}
-              className="mt-8 inline-flex items-center gap-2 text-lg text-muted hover:text-accent underline decoration-line underline-offset-8 transition-colors break-all"
+              className="inline-flex items-center gap-2 text-lg xl:text-xl text-muted hover:text-accent underline decoration-line underline-offset-8 transition-colors break-all"
             >
               {BIO.email}
             </a>
-            <div className="mt-10 flex flex-wrap gap-6 font-mono text-xs text-faint">
+            <div className="mt-8 flex flex-wrap gap-6 lg:justify-end font-mono text-xs text-faint">
               {SOCIALS.filter((s) => s.icon !== 'mail').map((s) => (
                 <a key={s.platform} href={s.url} {...externalProps(s.url)} className="inline-flex items-center gap-2 hover:text-ink transition-colors">
                   <SocialIcon icon={s.icon} size={14} />
@@ -458,12 +461,13 @@ const App: React.FC = () => {
                 arXiv
               </a>
             </div>
+            </div>
           </TextReveal>
         </section>
       </main>
 
       <footer className="border-t border-line">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 flex flex-col sm:flex-row justify-between gap-2 font-mono text-[11px] text-faint">
+        <div className="mx-auto w-full max-w-[100rem] px-5 sm:px-8 lg:px-12 xl:px-16 py-8 flex flex-col sm:flex-row justify-between gap-2 font-mono text-[11px] text-faint">
           <span>
             © {new Date().getFullYear()} {BIO.name}
           </span>

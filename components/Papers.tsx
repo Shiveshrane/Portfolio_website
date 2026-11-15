@@ -31,7 +31,7 @@ const Papers: React.FC = () => {
       {papers.map((p) => (
         <article
           key={p.id}
-          className="grid md:grid-cols-[140px_1fr] gap-x-10 gap-y-3 py-8 border-t border-line first:border-t-0 first:pt-0"
+          className="grid md:grid-cols-[140px_1fr] lg:grid-cols-[200px_1fr] xl:grid-cols-[240px_1fr] gap-x-10 xl:gap-x-16 gap-y-3 py-8 border-t border-line first:border-t-0 first:pt-0"
         >
           <div className="font-mono text-xs text-faint flex md:block items-start justify-between gap-4">
             <div className="space-y-1">
@@ -48,7 +48,7 @@ const Papers: React.FC = () => {
               href={p.absUrl}
               target="_blank"
               rel="noreferrer"
-              className="group inline text-lg md:text-xl font-medium leading-snug text-ink hover:text-accent transition-colors text-balance"
+              className="group inline text-lg md:text-xl xl:text-2xl font-medium leading-snug text-ink hover:text-accent transition-colors text-balance"
             >
               {p.title}
               <ArrowUpRight
@@ -89,7 +89,7 @@ const Papers: React.FC = () => {
                 <span className="w-3 text-center hidden group-open/abs:inline">−</span>
                 abstract
               </summary>
-              <p className="mt-3 max-w-prose text-sm leading-relaxed text-muted">{p.summary}</p>
+              <p className="mt-3 max-w-3xl text-sm xl:text-base leading-relaxed text-muted">{p.summary}</p>
             </details>
           </div>
         </article>

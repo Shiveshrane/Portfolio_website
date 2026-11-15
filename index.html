@@ -46,6 +46,11 @@
 
       html { scroll-behavior: smooth; scroll-padding-top: 80px; }
 
+      /* Scale everything (rem-based) up a notch on large displays so the layout fills the screen */
+      @media (min-width: 1800px) { html { font-size: 17px; } }
+      @media (min-width: 2300px) { html { font-size: 19px; } }
+      @media (min-width: 3000px) { html { font-size: 22px; } }
+
       body {
         background-color: var(--bg);
         color: var(--ink);

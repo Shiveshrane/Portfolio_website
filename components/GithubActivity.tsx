@@ -94,18 +94,24 @@ const GithubActivity: React.FC = () => {
           </div>
         )}
         {status === 'ready' && (
-          <div className="flex gap-[3px] w-max" role="img" aria-label={`${total} GitHub contributions in the last year`}>
+          // Weeks stretch to fill the full width; below ~13px per cell it scrolls instead (phones).
+          <div
+            className="grid gap-[3px]"
+            style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))`, minWidth: weeks.length * 13 }}
+            role="img"
+            aria-label={`${total} GitHub contributions in the last year`}
+          >
             {weeks.map((week, wi) => (
-              <div key={wi} className="flex flex-col gap-[3px]">
+              <div key={wi} className="grid grid-rows-7 gap-[3px]">
                 {week.map((day, di) =>
                   day ? (
                     <div
                       key={day.date}
-                      className={`size-[13px] md:size-[15px] rounded-[2px] ${LEVEL_CLASS[day.level] ?? LEVEL_CLASS[0]}`}
+                      className={`aspect-square w-full rounded-[2px] ${LEVEL_CLASS[day.level] ?? LEVEL_CLASS[0]}`}
                       title={`${day.count} contribution${day.count === 1 ? '' : 's'} on ${day.date}`}
                     />
                   ) : (
-                    <div key={`pad-${di}`} className="size-[13px] md:size-[15px]" />
+                    <div key={`pad-${di}`} className="aspect-square w-full" />
                   )
                 )}
               </div>
