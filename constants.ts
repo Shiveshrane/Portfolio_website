@@ -4,8 +4,8 @@ import { ExperienceItem, Project, Skill, SocialLink } from './types';
 
 export const BIO = {
   name: import.meta.env.VITE_NAME || "Shivesh Rane",
-  role: "CS Student / AI Researcher",
-  summary: "Final year CSE student who also loves gaslighting machines. Specialising in NLP and language modelling. Currently exploring Triton, ML Systems and Text Diffusion.",
+  role: "AI Engineer / AI Researcher",
+  summary: "AI engineer who also loves gaslighting machines. Specialising in NLP and language modelling. Currently exploring Triton, ML Systems and Text Diffusion.",
   location: import.meta.env.VITE_LOCATION || "Goa, India",
   email: import.meta.env.VITE_EMAIL || "shiveshrane4work@gmail.com",
   focus: ["NLP", "Language modelling", "ML Systems", "Triton", "Text diffusion"]
