@@ -142,7 +142,7 @@ const AttentionMap: React.FC = () => {
         ))}
       </div>
 
-      <div className="inline-grid gap-[3px]" style={{ gridTemplateColumns: `auto repeat(${n}, minmax(0, 1fr))` }}>
+      <div className="grid w-full max-w-[32rem] gap-[3px]" style={{ gridTemplateColumns: `auto repeat(${n}, minmax(0, 1fr))` }}>
         {/* Column (key) labels */}
         <div />
         {TOKENS.map((t, j) => (
@@ -178,7 +178,7 @@ const AttentionMap: React.FC = () => {
                   key={`c-${i}-${j}`}
                   onPointerEnter={() => !masked && setHover({ i, j })}
                   onPointerLeave={() => setHover(null)}
-                  className={`size-6 sm:size-7 rounded-[3px] flex items-center justify-center transition-[background-color,box-shadow] duration-500 ${
+                  className={`aspect-square w-full rounded-[3px] flex items-center justify-center transition-[background-color,box-shadow] duration-500 ${
                     masked ? '' : 'cursor-crosshair'
                   } ${isHover ? 'ring-1 ring-ink/70' : ''} ${hover && hover.i !== i && !masked ? 'opacity-60' : ''}`}
                   style={{
