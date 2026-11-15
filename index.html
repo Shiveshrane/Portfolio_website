@@ -3,152 +3,115 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Shivesh Rane | CS Student / AI Researcher</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Shivesh Rane — CS Student / AI Researcher</title>
+    <meta name="description" content="Shivesh Rane — CS student and AI researcher working on language models, sequence modelling and ML interpretability." />
+    <meta name="theme-color" content="#0a0a0b" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0a0b'/%3E%3Crect x='6' y='6' width='6' height='6' rx='1' fill='%23ff7a45'/%3E%3Crect x='6' y='13' width='6' height='6' rx='1' fill='%23ff7a45' opacity='.5'/%3E%3Crect x='13' y='13' width='6' height='6' rx='1' fill='%23ff7a45'/%3E%3Crect x='6' y='20' width='6' height='6' rx='1' fill='%23ff7a45' opacity='.25'/%3E%3Crect x='13' y='20' width='6' height='6' rx='1' fill='%23ff7a45' opacity='.4'/%3E%3Crect x='20' y='20' width='6' height='6' rx='1' fill='%23ff7a45'/%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100..800&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+              mono: ['"Geist Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+            },
+            colors: {
+              bg: 'var(--bg)',
+              surface: 'var(--surface)',
+              line: 'var(--line)',
+              ink: 'var(--ink)',
+              muted: 'var(--muted)',
+              faint: 'var(--faint)',
+              accent: 'rgb(var(--accent-rgb) / <alpha-value>)',
+            },
+          },
+        },
+      };
+    </script>
     <style>
+      :root {
+        --bg: #0a0a0b;
+        --surface: #111113;
+        --line: #1e1e22;
+        --ink: #ededee;
+        --muted: #9a9aa3;
+        --faint: #5c5c64;
+        --accent-rgb: 255 122 69;
+        color-scheme: dark;
+      }
+
+      html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+
       body {
-        background-color: #050505;
-        color: #e5e5e5;
-        font-family: 'JetBrains Mono', monospace;
+        background-color: var(--bg);
+        color: var(--ink);
+        font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
         overflow-x: hidden;
       }
-      
-      /* Industrial Scanlines */
-      .scanlines {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: linear-gradient(
-          to bottom,
-          rgba(255, 255, 255, 0),
-          rgba(255, 255, 255, 0) 50%,
-          rgba(0, 0, 0, 0.1) 50%,
-          rgba(0, 0, 0, 0.1)
-        );
-        background-size: 100% 4px;
-        pointer-events: none;
-        z-index: 50;
+
+      ::selection { background: rgb(var(--accent-rgb) / 0.3); color: #fff; }
+
+      /* Faint plot grid behind the hero, fading out */
+      .plot-grid {
+        background-image:
+          linear-gradient(to right, var(--line) 1px, transparent 1px),
+          linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: radial-gradient(ellipse 80% 70% at 70% 30%, #000 20%, transparent 75%);
+        -webkit-mask-image: radial-gradient(ellipse 80% 70% at 70% 30%, #000 20%, transparent 75%);
       }
 
-      /* CRT Flicker Animation */
-      @keyframes flicker {
-        0% { opacity: 0.97; }
-        5% { opacity: 0.95; }
-        10% { opacity: 0.9; }
-        15% { opacity: 0.95; }
-        20% { opacity: 0.99; }
-        25% { opacity: 0.95; }
-        30% { opacity: 0.9; }
-        35% { opacity: 0.96; }
-        40% { opacity: 0.98; }
-        45% { opacity: 0.95; }
-        50% { opacity: 0.99; }
-        55% { opacity: 0.93; }
-        60% { opacity: 0.9; }
-        65% { opacity: 0.96; }
-        70% { opacity: 1; }
-        75% { opacity: 0.97; }
-        80% { opacity: 0.95; }
-        85% { opacity: 0.92; }
-        90% { opacity: 0.95; }
-        95% { opacity: 0.99; }
-        100% { opacity: 0.94; }
+      /* Same grid in the accent colour, revealed only around the cursor */
+      .plot-grid-hot {
+        background-image:
+          linear-gradient(to right, rgb(var(--accent-rgb) / 0.45) 1px, transparent 1px),
+          linear-gradient(to bottom, rgb(var(--accent-rgb) / 0.45) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: radial-gradient(220px circle at var(--mx, -999px) var(--my, -999px), #000, transparent 70%);
+        -webkit-mask-image: radial-gradient(220px circle at var(--mx, -999px) var(--my, -999px), #000, transparent 70%);
       }
 
-      .crt-flicker {
-        animation: flicker 0.15s infinite;
-      }
-
-      /* Typing Cursor */
-      @keyframes blink {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0; }
-      }
-      .cursor-blink {
-        animation: blink 1s step-end infinite;
-      }
-
-      /* Liquid Glass Effect */
-      @keyframes liquidSheen {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-      }
-
-      .liquid-glass {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 50%, rgba(255, 255, 255, 0.03) 100%);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        position: relative;
-        overflow: hidden;
-        transition: all 0.4s ease;
-      }
-
-      .liquid-glass::before {
+      /* Cards: soft accent glow that follows the cursor */
+      .glow-card { position: relative; isolation: isolate; }
+      .glow-card::before {
         content: '';
         position: absolute;
-        top: 0;
-        left: -100%;
-        width: 200%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.05), rgba(255, 255, 255, 0.05), rgba(16, 185, 129, 0.05), transparent);
-        transform: skewX(-25deg);
-        transition: 0.5s;
-        pointer-events: none;
+        inset: 0;
+        z-index: -1;
+        border-radius: inherit;
+        background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), rgb(var(--accent-rgb) / 0.09), transparent 45%);
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .glow-card:hover::before { opacity: 1; }
+
+      /* Hide scrollbar but keep scrolling (contribution graph) */
+      .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+      .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+      /* Native <details> marker off; we draw our own */
+      summary { list-style: none; }
+      summary::-webkit-details-marker { display: none; }
+
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
       }
 
-      .liquid-glass:hover {
-        background: rgba(255, 255, 255, 0.05);
-        border-color: rgba(16, 185, 129, 0.3);
-        box-shadow: 0 8px 32px 0 rgba(16, 185, 129, 0.1);
-      }
-
-      .liquid-glass:hover::before {
-        animation: sheen 1.5s infinite;
-      }
-
-      @keyframes sheen {
-        0% { left: -100%; }
-        100% { left: 100%; }
-      }
-
-      /* Scrollbar */
-      ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #0a0a0a;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #333;
-        border: 1px solid #000;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #10b981;
-      }
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: var(--bg); }
+      ::-webkit-scrollbar-thumb { background: #26262b; border-radius: 8px; }
+      ::-webkit-scrollbar-thumb:hover { background: #3a3a40; }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
-</head>
+  </head>
   <body>
     <div id="root"></div>
-    <div class="scanlines"></div>
-  <script type="module" src="/index.tsx"></script>
-</body>
+    <script type="module" src="/index.tsx"></script>
+  </body>
 </html>

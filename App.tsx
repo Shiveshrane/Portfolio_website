@@ -1,415 +1,480 @@
-
-
-import React, { useState, useEffect } from 'react';
-import { ExternalLink, Github, Linkedin, Mail, Terminal, Cpu, Code, Database, Zap, Layers, BookOpen } from 'lucide-react';
-import NeuralBackground from './components/NeuralBackground';
-import GlitchText from './components/GlitchText';
-import DiffusionText from './components/DiffusionText';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDown, ArrowUpRight, Github, Linkedin, Mail } from 'lucide-react';
+import papers, { author as arxivAuthor } from 'virtual:arxiv-papers';
+import AttentionMap from './components/AttentionMap';
+import CommandPalette, { Command, OPEN_PALETTE_EVENT, SHORTCUT_LABEL } from './components/CommandPalette';
+import TokenizedName from './components/TokenizedName';
 import GithubActivity from './components/GithubActivity';
+import Papers from './components/Papers';
+import SectionHeader from './components/SectionHeader';
 import TextReveal from './components/TextReveal';
-import { BIO, EXPERIENCE, EDUCATION, PROJECTS, SKILLS, SOCIALS } from './constants';
+import { GITHUB_CONFIG } from './config';
+import { BIO, EDUCATION, EXPERIENCE, PROJECTS, SKILLS, SOCIALS } from './constants';
 
-// Typewriter Hook
-const useTypewriter = (text: string, speed: number = 50) => {
-  const [displayedText, setDisplayedText] = useState('');
-  
-  useEffect(() => {
-    let i = 0;
-    setDisplayedText('');
-    const timer = setInterval(() => {
-      if (i < text.length) {
-        setDisplayedText(text.substring(0, i + 1));
-        i++;
-      } else {
-        clearInterval(timer);
-      }
-    }, speed);
-    return () => clearInterval(timer);
-  }, [text, speed]);
+const NAV = [
+  { id: 'research', label: 'research' },
+  { id: 'experience', label: 'experience' },
+  { id: 'projects', label: 'projects' },
+  { id: 'stack', label: 'stack', desktopOnly: true },
+  { id: 'activity', label: 'activity', desktopOnly: true },
+  { id: 'contact', label: 'contact' },
+];
 
-  return displayedText;
-};
+const STACK = [
+  { key: 'domains', items: SKILLS.filter((s) => s.category === 'Core') },
+  { key: 'languages', items: SKILLS.filter((s) => s.category === 'Languages') },
+  { key: 'frameworks', items: SKILLS.filter((s) => s.category === 'Frameworks') },
+];
 
-const SectionTitle: React.FC<{ children: React.ReactNode; icon?: React.ReactNode; subtitle?: string }> = ({ children, icon, subtitle }) => (
-  <div className="flex items-end justify-between mb-8 border-b border-neutral-800 pb-4 group">
-    <div className="flex items-center gap-3">
-      <div className="bg-neutral-900 p-2 border border-neutral-800 group-hover:border-emerald-500/50 transition-colors">
-        <span className="text-emerald-500">{icon}</span>
-      </div>
-      <div>
-        <DiffusionText as="h2" className="text-2xl font-bold tracking-tight font-mono uppercase text-neutral-200">
-          {children}
-        </DiffusionText>
-        {subtitle && <div className="text-xs text-neutral-500 font-mono mt-1">{subtitle}</div>}
-      </div>
-    </div>
-    <div className="hidden md:block h-1 w-12 bg-emerald-500/20 group-hover:bg-emerald-500 transition-colors"></div>
-  </div>
+const arxivSearchUrl = `https://arxiv.org/search/?searchtype=author&query=${encodeURIComponent(arxivAuthor)}`;
+
+const SocialIcon: React.FC<{ icon: string; size?: number }> = ({ icon, size = 16 }) =>
+  icon === 'github' ? <Github size={size} /> : icon === 'linkedin' ? <Linkedin size={size} /> : <Mail size={size} />;
+
+const externalProps = (url: string) => (url.startsWith('mailto:') ? {} : { target: '_blank', rel: 'noreferrer' });
+
+/** Two-column row used by experience and education: mono date on the left, content on the right. */
+const Row: React.FC<{ aside: React.ReactNode; children: React.ReactNode }> = ({ aside, children }) => (
+  <article className="grid md:grid-cols-[140px_1fr] gap-x-10 gap-y-2 py-8 border-t border-line first:border-t-0 first:pt-0">
+    <div className="font-mono text-xs text-muted">{aside}</div>
+    <div className="min-w-0">{children}</div>
+  </article>
 );
 
+/** Writes the pointer position into --mx/--my on the element, for CSS spotlight effects. */
+const trackPointer = (e: React.PointerEvent<HTMLElement>) => {
+  const r = e.currentTarget.getBoundingClientRect();
+  e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`);
+  e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`);
+};
+
+// Scroll progress rendered as a training run: loss decays (with a little noise) as you read.
+const lossAt = (p: number) => 2.31 * Math.exp(-3.6 * p) + 0.071 + 0.035 * Math.sin(p * 71) * (1 - p);
+
+// Deferred so it runs after the command palette has closed and released the scroll lock.
+const scrollToId = (id: string) =>
+  setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }), 30);
+
 const App: React.FC = () => {
-  const [hoveredSkill, setHoveredSkill] = useState<string | null>(null);
-  const typedRole = useTypewriter(BIO.role, 70);
+  const [scrolled, setScrolled] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const heroRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      setScrolled(window.scrollY > 8);
+      setProgress(max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, []);
+
+  // Highlight the nav link for the section currently in the middle of the viewport.
+  useEffect(() => {
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => e.isIntersecting && setActiveSection(e.target.id)),
+      { rootMargin: '-45% 0px -50% 0px' }
+    );
+    NAV.forEach((n) => {
+      const el = document.getElementById(n.id);
+      if (el) io.observe(el);
+    });
+    const top = new IntersectionObserver(([e]) => e.isIntersecting && setActiveSection(null), {
+      rootMargin: '-45% 0px -50% 0px',
+    });
+    if (heroRef.current) top.observe(heroRef.current);
+    return () => {
+      io.disconnect();
+      top.disconnect();
+    };
+  }, []);
+
+  const commands = useMemo<Command[]>(
+    () => [
+      ...NAV.map((n, i) => ({
+        id: `go-${n.id}`,
+        group: 'Navigate',
+        label: n.label[0].toUpperCase() + n.label.slice(1),
+        hint: String(i + 1).padStart(2, '0'),
+        run: () => {
+          scrollToId(n.id);
+        },
+      })),
+      ...papers.map((p) => ({
+        id: `paper-${p.id}`,
+        group: 'Papers',
+        label: p.title,
+        hint: p.id,
+        run: () => void window.open(p.absUrl, '_blank', 'noopener'),
+      })),
+      ...PROJECTS.map((p, i) => ({
+        id: `project-${i}`,
+        group: 'Projects',
+        label: p.title,
+        hint: p.type.toLowerCase(),
+        run: () => void window.open(p.link, '_blank', 'noopener'),
+      })),
+      {
+        id: 'copy-email',
+        group: 'Contact',
+        label: 'Copy email address',
+        hint: BIO.email,
+        run: () => {
+          navigator.clipboard?.writeText(BIO.email).catch(() => {});
+          return 'email copied ✓';
+        },
+      },
+      ...SOCIALS.map((s) => ({
+        id: `social-${s.icon}`,
+        group: 'Contact',
+        label: s.icon === 'mail' ? 'Write an email' : `Open ${s.platform}`,
+        run: () => (s.url.startsWith('mailto:') ? void (window.location.href = s.url) : void window.open(s.url, '_blank', 'noopener')),
+      })),
+      {
+        id: 'arxiv',
+        group: 'Contact',
+        label: 'Open arXiv listing',
+        run: () => void window.open(arxivSearchUrl, '_blank', 'noopener'),
+      },
+    ],
+    []
+  );
+
+  const epoch = activeSection ? NAV.findIndex((n) => n.id === activeSection) + 1 : 0;
 
   return (
-    <div className="min-h-screen selection:bg-emerald-500/30 selection:text-emerald-200 relative overflow-x-hidden">
-      <NeuralBackground />
-      
-      {/* Decorative Side Borders */}
-      <div className="fixed left-0 top-0 h-full w-12 border-r border-neutral-800 hidden xl:flex flex-col justify-between items-center py-12 z-40 bg-[#050505]/80 backdrop-blur-sm">
-        <div className="vertical-text font-mono text-[10px] text-neutral-600 tracking-widest uppercase opacity-50 rotate-180">
-          System Status: Online
-        </div>
-        <div className="flex flex-col gap-8">
-          {SOCIALS.map((social) => (
-            <a 
-              key={social.platform} 
-              href={social.url} 
-              target={social.url.startsWith('mailto') ? undefined : "_blank"}
-              rel="noreferrer"
-              className="text-neutral-600 hover:text-emerald-400 transition-colors relative group"
-              title={social.platform}
-            >
-              {social.icon === 'github' && <Github size={20} />}
-              {social.icon === 'linkedin' && <Linkedin size={20} />}
-              {social.icon === 'mail' && <Mail size={20} />}
-              
-              <span className="absolute left-full ml-4 top-1/2 -translate-y-1/2 px-2 py-1 bg-neutral-900 text-xs text-emerald-500 border border-emerald-500/20 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                {social.platform === 'Email' ? BIO.email : social.platform}
-              </span>
+    <div className="min-h-screen">
+      <CommandPalette commands={commands} />
+
+      {/* Nav */}
+      <nav
+        className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${
+          scrolled ? 'bg-bg/80 backdrop-blur-md border-b border-line' : 'border-b border-transparent'
+        }`}
+      >
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-5 min-w-0">
+            <a href="#top" className="font-mono text-sm text-ink hover:text-accent transition-colors whitespace-nowrap">
+              <span className="text-accent">~/</span>
+              <span className="hidden sm:inline">{BIO.name.toLowerCase().replace(/\s+/g, '-')}</span>
             </a>
-          ))}
-        </div>
-        <div className="w-[1px] h-24 bg-gradient-to-b from-transparent via-emerald-900 to-transparent"></div>
-      </div>
-
-      {/* Gradient Overlay for Readability */}
-      <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-[#050505]/0 via-[#050505]/60 to-[#050505]/90"></div>
-      
-      {/* Main Content Wrapper - z-10 ensures it sits above background */}
-      <main className="max-w-6xl mx-auto px-6 py-12 md:py-20 xl:pl-24 relative z-10">
-        
-        {/* Header / Hero */}
-        <header className="mb-24 md:mb-32 relative">
-          <TextReveal>
-            <div className="inline-flex items-center gap-2 mb-6 px-3 py-1 border border-emerald-500/30 bg-emerald-500/5 text-emerald-400 text-xs font-mono uppercase tracking-wider rounded-sm">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-              Open for Collaboration
-            </div>
-          </TextReveal>
-          
-          <div className="relative">
-            <TextReveal delay={100}>
-              <DiffusionText 
-                text={BIO.name} 
-                as="h1" 
-                className="text-5xl md:text-7xl lg:text-8xl font-black text-white mb-4 tracking-tighter"
-              />
-            </TextReveal>
-            <div className="absolute -top-4 -left-4 w-8 h-8 border-t-2 border-l-2 border-emerald-500/30"></div>
+            <span
+              className={`hidden lg:inline font-mono text-[11px] text-faint tabular-nums whitespace-nowrap transition-opacity duration-300 ${
+                scrolled ? 'opacity-100' : 'opacity-0'
+              }`}
+              aria-hidden="true"
+            >
+              epoch {String(epoch).padStart(2, '0')}/{String(NAV.length).padStart(2, '0')} · loss{' '}
+              <span className="text-accent">{lossAt(progress).toFixed(3)}</span>
+            </span>
           </div>
+          <div className="flex items-center gap-4 sm:gap-6">
+            <ul className="flex items-center gap-4 sm:gap-6 font-mono text-xs text-faint">
+              {NAV.map((n) => (
+                <li key={n.id} className={n.desktopOnly ? 'hidden md:block' : undefined}>
+                  <a
+                    href={`#${n.id}`}
+                    aria-current={activeSection === n.id ? 'true' : undefined}
+                    className={`relative transition-colors hover:text-ink ${activeSection === n.id ? 'text-ink' : ''}`}
+                  >
+                    {n.label}
+                    <span
+                      className={`absolute -bottom-[20px] left-0 right-0 h-px bg-accent transition-opacity ${
+                        activeSection === n.id ? 'opacity-100' : 'opacity-0'
+                      }`}
+                    />
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
+              className="hidden md:inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 font-mono text-[10px] text-faint hover:text-ink hover:border-faint/60 transition-colors"
+              aria-label="Open command palette"
+            >
+              {SHORTCUT_LABEL}
+            </button>
+          </div>
+        </div>
+        {/* Training progress */}
+        <div className="absolute inset-x-0 bottom-[-1px] h-px">
+          <div className="h-full bg-accent/70 origin-left" style={{ transform: `scaleX(${progress})` }} />
+        </div>
+      </nav>
 
-          <TextReveal delay={200}>
-            <h2 className="text-xl md:text-3xl text-neutral-400 font-mono mb-8 flex items-center gap-3 h-8">
-              <span className="text-emerald-500 mt-1">&gt;</span>
-              <span>{typedRole}</span>
-              <span className="w-3 h-6 bg-emerald-500 cursor-blink mt-1"></span>
-            </h2>
-          </TextReveal>
+      <main id="top" className="max-w-5xl mx-auto px-4 sm:px-6">
+        {/* Hero */}
+        <header
+          ref={heroRef}
+          onPointerMove={trackPointer}
+          onPointerLeave={(e) => e.currentTarget.style.setProperty('--mx', '-999px')}
+          className="relative isolate pt-32 md:pt-44 pb-24 md:pb-32"
+        >
+          <div className="absolute inset-0 -z-10 plot-grid" aria-hidden="true" />
+          <div className="absolute inset-0 -z-10 plot-grid-hot" aria-hidden="true" />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <TextReveal delay={300}>
-              <div className="text-neutral-400 leading-relaxed border-l-2 border-neutral-800 pl-6 text-lg bg-gradient-to-r from-neutral-900/50 to-transparent py-2 pr-4 rounded-r-lg backdrop-blur-sm">
-                <DiffusionText as="p">{BIO.summary}</DiffusionText>
-              </div>
-            </TextReveal>
-            
-            <TextReveal delay={400}>
-              <div className="flex flex-col justify-center gap-3 md:items-start">
-                <div className="flex items-center gap-2 text-sm font-mono text-neutral-500">
-                  <Terminal size={14} />
-                  <span>Location: {BIO.location}</span>
+          <div className="grid md:grid-cols-12 gap-14 md:gap-8 items-start">
+            <div className="md:col-span-7">
+              <TextReveal>
+                <div className="inline-flex items-center gap-2 font-mono text-xs text-muted">
+                  <span className="relative flex size-2">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-accent opacity-60 animate-ping" />
+                    <span className="relative inline-flex size-2 rounded-full bg-accent" />
+                  </span>
+                  open to research collaborations
                 </div>
-                <div className="flex items-center gap-2 text-sm font-mono text-neutral-500">
-                  <Database size={14} />
-                  <span>Stack: Python, PyTorch, C++</span>
+              </TextReveal>
+
+              <TextReveal delay={80}>
+                <div className="mt-6">
+                  <TokenizedName
+                    name={BIO.name}
+                    className="text-5xl sm:text-6xl md:text-7xl font-semibold tracking-[-0.045em] leading-[1.05] text-ink"
+                  />
                 </div>
-              </div>
+              </TextReveal>
+
+              <TextReveal delay={160}>
+                <p className="mt-4 text-lg md:text-xl text-muted">{BIO.role}</p>
+                <p className="mt-6 max-w-xl text-base leading-relaxed text-muted">{BIO.summary}</p>
+              </TextReveal>
+
+              <TextReveal delay={240}>
+                <dl className="mt-10 grid grid-cols-[88px_1fr] gap-y-2 font-mono text-xs">
+                  <dt className="text-faint">focus</dt>
+                  <dd className="text-ink">{BIO.focus.join(' · ')}</dd>
+                  <dt className="text-faint">based</dt>
+                  <dd className="text-ink">{BIO.location}</dd>
+                  <dt className="text-faint">papers</dt>
+                  <dd className="text-ink">
+                    {papers.length} on arXiv
+                    {papers[0] && <span className="text-faint"> · latest {papers[0].id}</span>}
+                  </dd>
+                </dl>
+              </TextReveal>
+
+              <TextReveal delay={320}>
+                <div className="mt-10 flex flex-wrap items-center gap-3">
+                  <a
+                    href="#research"
+                    className="inline-flex items-center gap-2 rounded-md bg-ink px-4 py-2 text-sm font-medium text-bg hover:bg-accent transition-colors"
+                  >
+                    Read the papers <ArrowDown size={14} />
+                  </a>
+                  {SOCIALS.map((s) => (
+                    <a
+                      key={s.platform}
+                      href={s.url}
+                      {...externalProps(s.url)}
+                      aria-label={s.platform}
+                      title={s.platform === 'Email' ? BIO.email : s.platform}
+                      className="inline-flex size-9 items-center justify-center rounded-md border border-line text-muted hover:text-ink hover:border-faint transition-colors"
+                    >
+                      <SocialIcon icon={s.icon} />
+                    </a>
+                  ))}
+                </div>
+              </TextReveal>
+            </div>
+
+            <TextReveal delay={200} className="md:col-span-5 md:pl-8 md:border-l md:border-line">
+              <AttentionMap />
             </TextReveal>
           </div>
         </header>
 
-        {/* GitHub Section */}
-        <section className="mb-24">
+        {/* Research */}
+        <section id="research" className="py-16 md:py-20">
           <TextReveal>
-            <GithubActivity />
+            <SectionHeader
+              index="01"
+              title="Research"
+              meta={
+                <a href={arxivSearchUrl} target="_blank" rel="noreferrer" className="hover:text-ink transition-colors">
+                  arXiv ↗
+                </a>
+              }
+            />
+          </TextReveal>
+          <TextReveal delay={80}>
+            <Papers />
           </TextReveal>
         </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 mb-24">
-          
-          {/* Left Column: Experience & Education */}
-          <div className="lg:col-span-7 space-y-24">
-            
-            {/* Experience */}
-            <section>
-              <TextReveal>
-                <SectionTitle icon={<Cpu size={20} />} subtitle="PROFESSIONAL HISTORY">Experience</SectionTitle>
-              </TextReveal>
-              
-              <div className="space-y-12 relative">
-                {/* Connecting Line */}
-                <div className="absolute left-[9px] top-2 bottom-2 w-[1px] bg-neutral-800"></div>
-
-                {EXPERIENCE.map((exp, idx) => (
-                  <TextReveal key={idx} delay={idx * 100}>
-                    <div className="relative pl-8 group">
-                      <div className="absolute left-0 top-2 w-[19px] h-[19px] bg-[#030303] border border-neutral-600 rounded-full group-hover:border-emerald-500 group-hover:bg-emerald-500/20 transition-all z-10 flex items-center justify-center">
-                          <div className="w-1.5 h-1.5 bg-neutral-400 rounded-full group-hover:bg-emerald-400"></div>
-                      </div>
-                      
-                      <div className="liquid-glass p-6 rounded-sm">
-                          <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                              <Cpu size={48} />
-                          </div>
-                          
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 relative z-10">
-                              <DiffusionText as="h3" className="text-xl font-bold text-white group-hover:text-emerald-400 transition-colors">{exp.role}</DiffusionText>
-                              <span className="font-mono text-xs text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-sm border border-emerald-500/20">{exp.duration}</span>
-                          </div>
-                          
-                          <div className="text-neutral-400 font-mono text-sm mb-4 flex items-center gap-2">
-                              <span>@ {exp.company}</span>
-                          </div>
-                          
-                          <ul className="space-y-2 mb-5 relative z-10">
-                          {exp.description.map((desc, i) => (
-                              <li key={i} className="text-neutral-400 text-sm leading-relaxed flex items-baseline gap-3">
-                              <span className="text-emerald-500">»</span>
-                              <DiffusionText as="span">{desc}</DiffusionText>
-                              </li>
-                          ))}
-                          </ul>
-                          
-                          {exp.tech && (
-                          <div className="flex flex-wrap gap-2 relative z-10 border-t border-neutral-800 pt-3">
-                              {exp.tech.map(t => (
-                              <span key={t} className="px-2 py-1 bg-black/50 border border-neutral-700 text-[10px] uppercase tracking-wider text-neutral-400 font-mono hover:text-emerald-400 hover:border-emerald-500/50 transition-colors">
-                                  {t}
-                              </span>
-                              ))}
-                          </div>
-                          )}
-                      </div>
-                    </div>
-                  </TextReveal>
-                ))}
-              </div>
-            </section>
-
-            {/* Education */}
-            <section>
-              <TextReveal>
-                <SectionTitle icon={<Code size={20} />} subtitle="ACADEMIC BACKGROUND">Education</SectionTitle>
-              </TextReveal>
-              <div className="space-y-6">
-                {EDUCATION.map((edu, idx) => (
-                  <TextReveal key={idx} delay={idx * 100}>
-                    <div className="p-6 border-l-2 border-neutral-800 liquid-glass group">
-                      <div className="flex justify-between items-start mb-2 relative z-10">
-                        <DiffusionText as="h3" className="text-lg font-bold text-neutral-200 group-hover:text-white transition-colors">{edu.company}</DiffusionText>
-                        <span className="text-xs font-mono text-neutral-500">{edu.duration}</span>
-                      </div>
-                      <div className="text-neutral-400 text-sm mb-3 relative z-10">{edu.role}</div>
-                      <div className="relative z-10">
-                        {edu.description.map((d, i) => (
-                          <div key={i} className="inline-block mr-3 text-emerald-500/80 font-mono text-xs bg-emerald-500/5 px-2 py-1 rounded-sm">
-                            <DiffusionText as="span">{d}</DiffusionText>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </TextReveal>
-                ))}
-              </div>
-            </section>
-          </div>
-
-          {/* Right Column: Skills & Tools */}
-          <div className="lg:col-span-5">
-            <div className="sticky top-8">
-              <TextReveal>
-                <SectionTitle icon={<Terminal size={20} />} subtitle="CAPABILITIES">Tech Stack</SectionTitle>
-              </TextReveal>
-              
-              <div className="grid gap-8">
-                {/* Core Proficiency */}
-                <TextReveal delay={100}>
-                  <div className="liquid-glass p-6">
-                    
-                    <h3 className="text-xs font-mono uppercase text-emerald-500 mb-6 flex items-center gap-2 relative z-10">
-                      <Zap size={12} /> Core Systems
-                    </h3>
-                    
-                    {SKILLS.filter(s => s.category === 'Core').map(skill => (
-                      <div key={skill.name} className="mb-5 last:mb-0 relative z-10">
-                        <div className="flex justify-between text-xs font-mono mb-2 uppercase tracking-wider">
-                          <span className="text-neutral-300">{skill.name}</span>
-                          <span className="text-emerald-500">{skill.level}%</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-neutral-900 overflow-hidden relative border border-neutral-800">
-                          <div 
-                            className="h-full bg-emerald-600 relative"
-                            style={{ width: `${skill.level}%` }}
-                          >
-                              <div className="absolute right-0 top-0 h-full w-1 bg-white/50 shadow-[0_0_10px_rgba(255,255,255,0.5)]"></div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </TextReveal>
-
-                {/* Skill Tags */}
-                <TextReveal delay={200}>
-                  <div className="liquid-glass p-6">
-                    <h3 className="text-xs font-mono uppercase text-emerald-500 mb-4 flex items-center gap-2 relative z-10">
-                      <Layers size={12} /> Libraries & Tools
-                    </h3>
-                    <div className="flex flex-wrap gap-2 relative z-10">
-                      {SKILLS.filter(s => s.category !== 'Core').map(skill => (
-                        <span 
-                          key={skill.name}
-                          onMouseEnter={() => setHoveredSkill(skill.name)}
-                          onMouseLeave={() => setHoveredSkill(null)}
-                          className={`
-                            px-3 py-1.5 font-mono text-xs border transition-all cursor-default relative overflow-hidden
-                            ${hoveredSkill === skill.name 
-                              ? 'bg-emerald-500 text-black border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]' 
-                              : 'bg-black border-neutral-800 text-neutral-400 hover:border-neutral-600'}
-                          `}
-                        >
-                          {skill.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </TextReveal>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Projects Grid */}
-        <section className="mb-24">
+        {/* Experience & education */}
+        <section id="experience" className="py-16 md:py-20">
           <TextReveal>
-            <SectionTitle icon={<Database size={20} />} subtitle="CODE REPOSITORIES">Deployments</SectionTitle>
+            <SectionHeader index="02" title="Experience" />
           </TextReveal>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {PROJECTS.map((project, idx) => (
-              <TextReveal key={idx} delay={idx * 100} className="h-full">
-                <a 
-                  href={project.link} 
-                  target="_blank" 
+          <TextReveal delay={80}>
+            {EXPERIENCE.map((exp) => (
+              <Row key={exp.role + exp.company} aside={exp.duration}>
+                <h3 className="text-lg font-medium text-ink">
+                  {exp.role} <span className="font-normal text-muted">· {exp.company}</span>
+                </h3>
+                <ul className="mt-3 space-y-2 text-sm leading-relaxed text-muted">
+                  {exp.description.map((d) => (
+                    <li key={d} className="flex gap-3">
+                      <span className="font-mono text-faint">–</span>
+                      <span>{d}</span>
+                    </li>
+                  ))}
+                </ul>
+                {exp.tech && <p className="mt-4 font-mono text-[11px] text-faint">{exp.tech.join(' · ')}</p>}
+              </Row>
+            ))}
+          </TextReveal>
+
+          <TextReveal>
+            <h3 className="mt-16 mb-8 font-mono text-[11px] uppercase tracking-[0.2em] text-faint">Education</h3>
+            {EDUCATION.map((edu) => (
+              <Row key={edu.company} aside={edu.duration}>
+                <h4 className="text-base font-medium text-ink">{edu.company}</h4>
+                <p className="mt-1 text-sm text-muted">{edu.role}</p>
+                <p className="mt-3 font-mono text-[11px] text-faint">{edu.description.join(' · ')}</p>
+              </Row>
+            ))}
+          </TextReveal>
+        </section>
+
+        {/* Projects */}
+        <section id="projects" className="py-16 md:py-20">
+          <TextReveal>
+            <SectionHeader index="03" title="Projects" />
+          </TextReveal>
+          <div className="grid gap-4 md:grid-cols-3">
+            {PROJECTS.map((p, idx) => (
+              <TextReveal key={p.title} delay={idx * 80} className="h-full">
+                <a
+                  href={p.link}
+                  target="_blank"
                   rel="noreferrer"
-                  className="group block h-full"
+                  onPointerMove={trackPointer}
+                  className="glow-card group flex h-full flex-col rounded-lg border border-line bg-surface/40 p-6 hover:border-accent/40 hover:bg-surface transition-colors"
                 >
-                  <div className="h-full p-6 liquid-glass hover:border-emerald-500/50 flex flex-col">
-                    {/* Industrial Corners */}
-                    <div className="absolute top-0 left-0 w-3 h-3 border-t border-l border-neutral-700 group-hover:border-emerald-500 transition-colors"></div>
-                    <div className="absolute top-0 right-0 w-3 h-3 border-t border-r border-neutral-700 group-hover:border-emerald-500 transition-colors"></div>
-                    <div className="absolute bottom-0 left-0 w-3 h-3 border-b border-l border-neutral-700 group-hover:border-emerald-500 transition-colors"></div>
-                    <div className="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-neutral-700 group-hover:border-emerald-500 transition-colors"></div>
-                    
-                    <div className="mb-5 flex justify-between items-start relative z-10">
-                      <span className={`
-                        px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider border rounded-sm
-                        ${project.type === 'Research' ? 'border-purple-500/30 text-purple-400 bg-purple-900/10' : 
-                          project.type === 'Application' ? 'border-emerald-500/30 text-emerald-400 bg-emerald-900/10' : 
-                          project.type === 'Project' ? 'border-blue-500/30 text-blue-400 bg-blue-900/10' :
-                          'border-blue-500/30 text-blue-400 bg-blue-900/10'}
-                      `}>
-                        {project.type}
-                      </span>
-                      <ExternalLink size={16} className="text-neutral-600 group-hover:text-emerald-400 transition-colors" />
-                    </div>
-                    
-                    <h3 className="text-lg font-bold text-neutral-200 mb-3 group-hover:text-emerald-400 transition-colors font-mono relative z-10">
-                      <DiffusionText as="span">{project.title}</DiffusionText>
-                    </h3>
-                    
-                    <div className="text-xs text-neutral-400 mb-6 flex-grow leading-relaxed relative z-10">
-                      <DiffusionText as="p">{project.description}</DiffusionText>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2 mt-auto pt-4 border-t border-neutral-800/50 relative z-10">
-                      {project.tech.map(t => (
-                        <span key={t} className="text-[10px] font-mono text-neutral-500 group-hover:text-neutral-300 transition-colors">#{t}</span>
-                      ))}
-                    </div>
+                  <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-wider text-faint">
+                    <span>{p.type}</span>
+                    <ArrowUpRight
+                      size={14}
+                      className="group-hover:text-accent group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-all"
+                    />
                   </div>
+                  <h3 className="mt-8 text-base font-medium text-ink group-hover:text-accent transition-colors">
+                    {p.title}
+                  </h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted">{p.description}</p>
+                  <p className="mt-6 font-mono text-[11px] leading-relaxed text-faint">{p.tech.join(' · ')}</p>
                 </a>
               </TextReveal>
             ))}
           </div>
         </section>
 
-        {/* Research Papers Section */}
-        <section className="mb-24">
+        {/* Stack */}
+        <section id="stack" className="py-16 md:py-20">
           <TextReveal>
-            <SectionTitle icon={<BookOpen size={20} />} subtitle="PUBLICATIONS">Research Papers</SectionTitle>
+            <SectionHeader index="04" title="Stack" />
           </TextReveal>
-          <TextReveal delay={100}>
-            <div className="w-full p-12 border border-neutral-800 bg-[#0d1117] flex flex-col items-center justify-center text-center relative overflow-hidden group">
-               {/* Industrial Decor */}
-               <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-emerald-500/50"></div>
-               <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-emerald-500/50"></div>
-               <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-emerald-500/50"></div>
-               <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-emerald-500/50"></div>
-               
-               <div className="mb-4 p-4 bg-neutral-900/50 rounded-full border border-neutral-800 group-hover:border-emerald-500/30 transition-colors">
-                  <BookOpen size={32} className="text-neutral-600 group-hover:text-emerald-500 transition-colors" />
-               </div>
-               
-               <DiffusionText as="h3" className="text-xl font-bold text-neutral-300 font-mono mb-2">
-                 Coming Soon...
-               </DiffusionText>
-               
-               <p className="text-neutral-500 text-sm max-w-md mx-auto">
-                 Research papers and publications will be listed here once published. Currently working on Vision-Language Models and Object Tracking.
-               </p>
+          <TextReveal delay={80}>
+            <div className="rounded-lg border border-line bg-surface/50 font-mono">
+              <div className="flex items-center justify-between border-b border-line px-4 py-2.5 text-[11px] text-faint">
+                <span>config/stack.yaml</span>
+                <span>{SKILLS.length} entries</span>
+              </div>
+              <dl className="space-y-4 p-4 sm:p-6 text-[13px]">
+                {STACK.map((g) => (
+                  <div key={g.key} className="grid sm:grid-cols-[120px_1fr] gap-x-4 gap-y-1">
+                    <dt className="text-accent">{g.key}:</dt>
+                    <dd className="leading-7 text-ink">
+                      <span className="text-faint">[</span>
+                      {g.items.map((s, i) => (
+                        <React.Fragment key={s.name}>
+                          <span className="hover:text-accent transition-colors">{s.name}</span>
+                          {i < g.items.length - 1 && <span className="text-faint">, </span>}
+                        </React.Fragment>
+                      ))}
+                      <span className="text-faint">]</span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           </TextReveal>
         </section>
 
-        {/* Footer */}
-        <footer className="border-t border-neutral-800 pt-12 pb-8 text-center relative">
-           <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#030303] px-4 text-neutral-600">
-             <Terminal size={16} />
-           </div>
-           <p className="text-neutral-500 font-mono text-xs mb-6 uppercase tracking-widest">
-             Designed & Engineered by <span className="text-emerald-500">Shivesh Rane</span>
-           </p>
-           <div className="flex flex-col items-center gap-4">
-             <div className="flex justify-center gap-8">
-               {SOCIALS.filter(social => social.platform !== 'Email').map((social) => (
-                  <a 
-                    key={social.platform} 
-                    href={social.url} 
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-neutral-600 hover:text-emerald-500 transition-colors"
-                  >
-                    {social.platform}
-                  </a>
-               ))}
-             </div>
-             <div className="text-neutral-600 font-mono text-xs select-all hover:text-emerald-500 transition-colors cursor-text">
-                {BIO.email}
-             </div>
-           </div>
-        </footer>
+        {/* Activity */}
+        <section id="activity" className="py-16 md:py-20">
+          <TextReveal>
+            <SectionHeader
+              index="05"
+              title="Activity"
+              meta={
+                <a
+                  href={`https://github.com/${GITHUB_CONFIG.USERNAME}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-ink transition-colors"
+                >
+                  github ↗
+                </a>
+              }
+            />
+          </TextReveal>
+          <TextReveal delay={80}>
+            <GithubActivity />
+          </TextReveal>
+        </section>
+
+        {/* Contact */}
+        <section id="contact" className="py-24 md:py-32 border-t border-line">
+          <TextReveal>
+            <p className="font-mono text-xs text-accent">06</p>
+            <h2 className="mt-4 max-w-2xl text-3xl md:text-5xl font-semibold tracking-[-0.03em] leading-tight text-ink text-balance">
+              Working on language models? Let’s talk.
+            </h2>
+            <a
+              href={`mailto:${BIO.email}`}
+              className="mt-8 inline-flex items-center gap-2 text-lg text-muted hover:text-accent underline decoration-line underline-offset-8 transition-colors break-all"
+            >
+              {BIO.email}
+            </a>
+            <div className="mt-10 flex flex-wrap gap-6 font-mono text-xs text-faint">
+              {SOCIALS.filter((s) => s.icon !== 'mail').map((s) => (
+                <a key={s.platform} href={s.url} {...externalProps(s.url)} className="inline-flex items-center gap-2 hover:text-ink transition-colors">
+                  <SocialIcon icon={s.icon} size={14} />
+                  {s.platform}
+                </a>
+              ))}
+              <a href={arxivSearchUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-ink transition-colors">
+                <span className="text-[13px] leading-none">χ</span>
+                arXiv
+              </a>
+            </div>
+          </TextReveal>
+        </section>
       </main>
+
+      <footer className="border-t border-line">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 flex flex-col sm:flex-row justify-between gap-2 font-mono text-[11px] text-faint">
+          <span>
+            © {new Date().getFullYear()} {BIO.name}
+          </span>
+          <span>
+            <span className="hidden md:inline">
+              press <kbd className="text-muted">{SHORTCUT_LABEL}</kbd> to navigate ·{' '}
+            </span>
+            papers synced from arXiv at build time
+          </span>
+        </div>
+      </footer>
     </div>
   );
 };
